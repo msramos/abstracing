@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: "mix"
+    directory: "/"
+    insecure-external-code-execution: allow
+    schedule:
+      interval: "daily"
+    reviewers:
+      - "msramos"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"

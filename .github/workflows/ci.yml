@@ -1,0 +1,126 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "main"
+
+env:
+  ELIXIR_VERSION: "1.14.5"
+  ERLANG_VERSION: "25.3.2"
+  DEBIAN_VERSION: "bullseye-20230522"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build Env
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.ERLANG_VERSION }}
+
+      - name: Retrieve Cache
+        uses: actions/cache/restore@v3
+        id: restore-cache
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+
+      - name: Install Mix Dependencies
+        if: steps.restore-cache.outputs.cache-hit != 'true'
+        run: |
+          mix local.rebar --force
+          mix local.hex --force
+          mix deps.get
+
+      - name: Compile dev
+        env:
+          MIX_ENV: dev
+        run: mix compile --warnings-as-errors
+
+      - name: Compile test
+        env:
+          MIX_ENV: test
+        run: mix compile --warnings-as-errors
+
+      - name: Save Cache
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Unit Tests
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.ERLANG_VERSION }}
+
+      - name: Retrieve Cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+
+      - name: Compile
+        env:
+          MIX_ENV: test
+        run: mix compile --warnings-as-errors
+
+      - name: Running Tests
+        run: mix test --warnings-as-errors
+
+  linter:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Linter and Formatting
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: erlef/setup-beam@v1
+        with:
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.ERLANG_VERSION }}
+
+      - name: Retrieve Cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-${{ env.ERLANG_VERSION }}-${{ env.ELIXIR_VERSION }}-mix-${{ hashFiles(format('{0}{1}', github.workspace, '/mix.lock')) }}
+
+      - name: Compile
+        env:
+          MIX_ENV: dev
+        run: mix compile --warnings-as-errors
+
+      - name: Running Linters
+        run: mix do format --check-formatted, credo --strict
+
+      - name: Sobelow
+        run: mix sobelow --config
+
+      - name: Deps audit and unused
+        run: mix do deps.audit, deps.unlock --check-unused
