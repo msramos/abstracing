@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Build Env
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: erlef/setup-beam@v1
         with:
@@ -65,7 +65,7 @@ jobs:
     name: Unit Tests
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
@@ -95,7 +95,7 @@ jobs:
     name: Linter and Formatting
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: erlef/setup-beam@v1
         with:
           elixir-version: ${{ env.ELIXIR_VERSION }}
